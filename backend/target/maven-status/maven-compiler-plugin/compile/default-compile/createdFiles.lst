@@ -8,6 +8,7 @@ com/stockgenie/entity/TechnicalAnalysis$TechnicalAnalysisBuilder.class
 com/stockgenie/controller/HealthController.class
 com/stockgenie/service/TechnicalAnalysisService.class
 com/stockgenie/dto/TechnicalAnalysisDto$TechnicalAnalysisDtoBuilder.class
+com/stockgenie/config/CorsConfig.class
 com/stockgenie/service/ApiOptimizationService.class
 com/stockgenie/dto/LLMResponseDto$LLMResponseDtoBuilder.class
 com/stockgenie/config/FinancialApiConfig$AlphaVantage.class

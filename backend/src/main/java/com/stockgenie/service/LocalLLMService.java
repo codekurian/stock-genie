@@ -6,6 +6,7 @@ import com.stockgenie.config.LocalLLMConfig;
 import com.stockgenie.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -25,6 +26,12 @@ public class LocalLLMService {
     private final LocalLLMConfig localLLMConfig;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
+    
+    @Autowired
+    private FinancialDataService financialDataService;
+    
+    @Autowired
+    private TechnicalAnalysisService technicalAnalysisService;
     
     /**
      * Analyze stock data using local LLM
@@ -53,6 +60,59 @@ public class LocalLLMService {
         } catch (Exception e) {
             log.error("Error analyzing stock data with LLM: {}", e.getMessage());
             throw new RuntimeException("Failed to analyze stock data with LLM", e);
+        }
+    }
+    
+    /**
+     * Simple stock analysis that fetches data internally
+     */
+    public Map<String, Object> analyzeStockSimple(String symbol, String analysisType, int days, boolean includeTechnical) {
+        log.info("Simple analysis for {} - type: {}, days: {}, technical: {}", symbol, analysisType, days, includeTechnical);
+        
+        try {
+            // Fetch stock data
+            List<StockDataDto> stockData = financialDataService.getStockDataForRange(symbol, days);
+            
+            // Build simple prompt
+            String prompt = buildSimplePrompt(symbol, stockData, analysisType);
+            
+            // Call LLM
+            String response = callOllamaAPI(prompt);
+            
+            // Parse response for recommendation
+            String recommendation = extractRecommendation(response);
+            int confidence = extractConfidence(response);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("symbol", symbol);
+            result.put("analysis", response);
+            result.put("recommendation", recommendation);
+            result.put("confidence", confidence);
+            result.put("timestamp", LocalDateTime.now().toString());
+            result.put("analysisType", analysisType);
+            result.put("days", days);
+            
+            if (includeTechnical) {
+                try {
+                    Map<String, List<TechnicalAnalysisDto>> technicalData = technicalAnalysisService.calculateTechnicalIndicators(symbol, days, null);
+                    result.put("technicalSummary", formatTechnicalSummary(technicalData));
+                } catch (Exception e) {
+                    log.warn("Failed to include technical analysis: {}", e.getMessage());
+                    result.put("technicalSummary", "Technical analysis not available");
+                }
+            }
+            
+            return result;
+            
+        } catch (Exception e) {
+            log.error("Error in simple stock analysis: {}", e.getMessage());
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("symbol", symbol);
+            errorResult.put("analysis", "Analysis failed: " + e.getMessage());
+            errorResult.put("recommendation", "HOLD");
+            errorResult.put("confidence", 0);
+            errorResult.put("timestamp", LocalDateTime.now().toString());
+            return errorResult;
         }
     }
     
@@ -376,5 +436,95 @@ public class LocalLLMService {
             log.error("Error testing LLM: {}", e.getMessage());
             return "Error testing LLM: " + e.getMessage();
         }
+    }
+    
+    /**
+     * Build simple prompt for stock analysis
+     */
+    private String buildSimplePrompt(String symbol, List<StockDataDto> stockData, String analysisType) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are a financial analyst. Analyze the following stock data for ").append(symbol).append(":\n\n");
+        
+        prompt.append("Stock Data (last ").append(stockData.size()).append(" days):\n");
+        for (StockDataDto data : stockData) {
+            prompt.append(String.format("Date: %s, Open: $%.2f, High: $%.2f, Low: $%.2f, Close: $%.2f, Volume: %d\n",
+                data.getDate(), data.getOpen(), data.getHigh(), data.getLow(), data.getClose(), data.getVolume()));
+        }
+        
+        prompt.append("\nPlease provide:\n");
+        prompt.append("1. Brief trend analysis\n");
+        prompt.append("2. Key price movements\n");
+        prompt.append("3. Volume analysis\n");
+        prompt.append("4. Recommendation: BUY, SELL, or HOLD with confidence percentage (1-100)\n");
+        prompt.append("5. Brief reasoning for your recommendation\n\n");
+        prompt.append("Keep your analysis concise and professional.");
+        
+        return prompt.toString();
+    }
+    
+    /**
+     * Extract recommendation from LLM response
+     */
+    private String extractRecommendation(String response) {
+        String upperResponse = response.toUpperCase();
+        if (upperResponse.contains("BUY")) {
+            return "BUY";
+        } else if (upperResponse.contains("SELL")) {
+            return "SELL";
+        } else {
+            return "HOLD";
+        }
+    }
+    
+    /**
+     * Extract confidence from LLM response
+     */
+    private int extractConfidence(String response) {
+        // Look for percentage patterns
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)%");
+        java.util.regex.Matcher matcher = pattern.matcher(response);
+        
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException e) {
+                // Fallback
+            }
+        }
+        
+        // Look for confidence patterns
+        if (response.toLowerCase().contains("high confidence") || response.toLowerCase().contains("very confident")) {
+            return 85;
+        } else if (response.toLowerCase().contains("medium confidence") || response.toLowerCase().contains("moderate")) {
+            return 65;
+        } else if (response.toLowerCase().contains("low confidence") || response.toLowerCase().contains("uncertain")) {
+            return 35;
+        }
+        
+        return 50; // Default confidence
+    }
+    
+    /**
+     * Format technical summary
+     */
+    private String formatTechnicalSummary(Map<String, List<TechnicalAnalysisDto>> technicalData) {
+        if (technicalData == null || technicalData.isEmpty()) {
+            return "No technical indicators available";
+        }
+        
+        StringBuilder summary = new StringBuilder();
+        summary.append("Technical Indicators Summary:\n");
+        
+        for (Map.Entry<String, List<TechnicalAnalysisDto>> entry : technicalData.entrySet()) {
+            String indicator = entry.getKey();
+            List<TechnicalAnalysisDto> values = entry.getValue();
+            
+            if (!values.isEmpty()) {
+                TechnicalAnalysisDto latest = values.get(values.size() - 1);
+                summary.append(String.format("- %s: %.4f\n", indicator, latest.getValue()));
+            }
+        }
+        
+        return summary.toString();
     }
 }

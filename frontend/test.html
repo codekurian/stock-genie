@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Genie Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const TestApp = () => {
+            const [status, setStatus] = useState('Loading...');
+            const [data, setData] = useState(null);
+            
+            useEffect(() => {
+                // Test API connection
+                axios.get('http://localhost:8080/api/v1/health')
+                    .then(response => {
+                        setStatus('Backend Connected!');
+                        setData(response.data);
+                    })
+                    .catch(error => {
+                        setStatus('Backend Error: ' + error.message);
+                    });
+            }, []);
+            
+            return React.createElement('div', { className: 'min-h-screen bg-gray-100 flex items-center justify-center' },
+                React.createElement('div', { className: 'bg-white p-8 rounded-lg shadow-lg max-w-md w-full' },
+                    React.createElement('h1', { className: 'text-2xl font-bold text-center mb-4' }, 'Stock Genie Test'),
+                    React.createElement('div', { className: 'text-center' },
+                        React.createElement('p', { className: 'text-lg mb-2' }, 'Status: ' + status),
+                        data && React.createElement('div', { className: 'mt-4 p-4 bg-gray-50 rounded' },
+                            React.createElement('p', null, 'Version: ' + data.version),
+                            React.createElement('p', null, 'Message: ' + data.message)
+                        )
+                    )
+                )
+            );
+        };
+        
+        ReactDOM.render(React.createElement(TestApp), document.getElementById('root'));
+    </script>
+</body>
+</html>

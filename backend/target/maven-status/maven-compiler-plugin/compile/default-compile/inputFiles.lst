@@ -1,5 +1,6 @@
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/StockGenieBackendApplication.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/config/AppConfig.java
+/Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/config/CorsConfig.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/config/FinancialApiConfig.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/config/LocalLLMConfig.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/config/RedisConfig.java

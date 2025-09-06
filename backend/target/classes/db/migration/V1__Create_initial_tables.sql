@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS analysis_request (
     id BIGSERIAL PRIMARY KEY,
     symbol VARCHAR(10) NOT NULL,
     analysis_type VARCHAR(50) NOT NULL,
-    request_data JSONB,
-    response_data JSONB,
+    request_data TEXT,
+    response_data TEXT,
     status VARCHAR(20) DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -20,6 +20,9 @@ spring:
   
   cache:
     type: simple
+  
+  flyway:
+    enabled: false
 
 # Test LLM Configuration (mock)
 local-llm:

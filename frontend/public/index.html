@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Genie - AI-Powered Stock Analysis</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+        
+        // API Service
+        const API_BASE_URL = 'http://localhost:8080/api/v1';
+        
+        const api = {
+            getStockData: async (symbol, days = 30) => {
+                const response = await axios.get(`${API_BASE_URL}/stocks/${symbol}?days=${days}`);
+                return response.data;
+            },
+            getLatestStockData: async (symbol) => {
+                const response = await axios.get(`${API_BASE_URL}/stocks/${symbol}/latest`);
+                return response.data;
+            },
+            getHealth: async () => {
+                const response = await axios.get(`${API_BASE_URL}/health`);
+                return response.data;
+            },
+            getLLMStatus: async () => {
+                const response = await axios.get(`${API_BASE_URL}/llm/status`);
+                return response.data;
+            },
+            analyzeStock: async (request) => {
+                const response = await axios.post(`${API_BASE_URL}/llm/analyze`, request);
+                return response.data;
+            }
+        };
+        
+        // Health Status Component
+        const HealthStatus = () => {
+            const [health, setHealth] = useState(null);
+            const [loading, setLoading] = useState(false);
+            
+            const checkHealth = async () => {
+                setLoading(true);
+                try {
+                    const response = await api.getHealth();
+                    setHealth(response);
+                } catch (err) {
+                    setHealth({ status: 'DOWN', message: 'Service unavailable' });
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            useEffect(() => {
+                checkHealth();
+            }, []);
+            
+            const isHealthy = health?.status === 'UP';
+            
+            return React.createElement('div', { className: 'flex items-center space-x-2' },
+                React.createElement('button', {
+                    onClick: checkHealth,
+                    disabled: loading,
+                    className: `flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
+                        isHealthy ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`
+                },
+                    loading ? '⏳' : (isHealthy ? '✅' : '❌'),
+                    React.createElement('span', null, isHealthy ? 'Online' : 'Offline')
+                )
+            );
+        };
+        
+        // Stock Chart Component
+        const StockChart = ({ data, symbol }) => {
+            if (!data || data.length === 0) {
+                return React.createElement('div', { className: 'flex items-center justify-center h-96 text-gray-500' },
+                    React.createElement('div', { className: 'text-center' },
+                        React.createElement('p', { className: 'text-lg font-medium' }, 'No data available'),
+                        React.createElement('p', { className: 'text-sm' }, 'Please select a stock symbol to view the chart')
+                    )
+                );
+            }
+            
+            const chartData = data.map(item => ({
+                date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                close: item.close,
+                volume: item.volume
+            }));
+            
+            const latestPrice = data[data.length - 1]?.close || 0;
+            const firstPrice = data[0]?.close || 0;
+            const priceChange = latestPrice - firstPrice;
+            const priceChangePercent = firstPrice > 0 ? (priceChange / firstPrice) * 100 : 0;
+            const isPositive = priceChange >= 0;
+            
+            return React.createElement('div', { className: 'space-y-6' },
+                // Chart Header
+                React.createElement('div', { className: 'flex items-center justify-between' },
+                    React.createElement('div', null,
+                        React.createElement('h2', { className: 'text-2xl font-bold text-gray-900' }, symbol),
+                        React.createElement('div', { className: 'flex items-center space-x-4 mt-2' },
+                            React.createElement('span', { className: 'text-3xl font-bold text-gray-900' }, `$${latestPrice.toFixed(2)}`),
+                            React.createElement('span', { 
+                                className: `text-lg font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`
+                            }, `${isPositive ? '+' : ''}$${priceChange.toFixed(2)} (${isPositive ? '+' : ''}${priceChangePercent.toFixed(2)}%)`)
+                        )
+                    )
+                ),
+                
+                // Price Chart
+                React.createElement('div', { className: 'h-96' },
+                    React.createElement(ResponsiveContainer, { width: '100%', height: '100%' },
+                        React.createElement(LineChart, { data: chartData },
+                            React.createElement(CartesianGrid, { strokeDasharray: '3 3', stroke: '#f0f0f0' }),
+                            React.createElement(XAxis, { dataKey: 'date', stroke: '#6b7280' }),
+                            React.createElement(YAxis, { stroke: '#6b7280', tickFormatter: (value) => `$${value.toFixed(0)}` }),
+                            React.createElement(Tooltip, { 
+                                formatter: (value, name) => [`$${value.toFixed(2)}`, name === 'close' ? 'Close Price' : name]
+                            }),
+                            React.createElement(Line, { 
+                                type: 'monotone', 
+                                dataKey: 'close', 
+                                stroke: isPositive ? '#10b981' : '#ef4444', 
+                                strokeWidth: 2 
+                            })
+                        )
+                    )
+                )
+            );
+        };
+        
+        // Main Dashboard Component
+        const Dashboard = () => {
+            const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
+            const [stockData, setStockData] = useState([]);
+            const [latestData, setLatestData] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [activeTab, setActiveTab] = useState('chart');
+            const [llmStatus, setLlmStatus] = useState(null);
+            const [analysis, setAnalysis] = useState(null);
+            
+            const popularSymbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX'];
+            
+            const fetchStockData = async (symbol) => {
+                setLoading(true);
+                setError(null);
+                try {
+                    const [data, latest] = await Promise.all([
+                        api.getStockData(symbol, 30),
+                        api.getLatestStockData(symbol)
+                    ]);
+                    setStockData(data);
+                    setLatestData(latest);
+                } catch (err) {
+                    setError('Failed to fetch stock data');
+                    console.error('Error fetching stock data:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const fetchLLMStatus = async () => {
+                try {
+                    const status = await api.getLLMStatus();
+                    setLlmStatus(status);
+                } catch (err) {
+                    setLlmStatus({ available: false, message: 'LLM service unavailable' });
+                }
+            };
+            
+            const runAnalysis = async () => {
+                if (!llmStatus?.available) {
+                    setError('LLM service is not available');
+                    return;
+                }
+                
+                setLoading(true);
+                setError(null);
+                try {
+                    const request = {
+                        symbol: selectedSymbol,
+                        analysisType: 'quick',
+                        days: 7,
+                        includeTechnicalAnalysis: true
+                    };
+                    const response = await api.analyzeStock(request);
+                    setAnalysis(response);
+                } catch (err) {
+                    setError('Failed to get AI analysis');
+                    console.error('Error running analysis:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            useEffect(() => {
+                fetchStockData(selectedSymbol);
+                fetchLLMStatus();
+            }, [selectedSymbol]);
+            
+            const getPriceChange = () => {
+                if (!stockData || stockData.length < 2) return { change: 0, percentage: 0 };
+                
+                const latest = stockData[stockData.length - 1];
+                const previous = stockData[stockData.length - 2];
+                const change = latest.close - previous.close;
+                const percentage = (change / previous.close) * 100;
+                
+                return { change, percentage };
+            };
+            
+            const priceChange = getPriceChange();
+            const isPositive = priceChange.change >= 0;
+            
+            return React.createElement('div', { className: 'min-h-screen bg-gray-50' },
+                // Header
+                React.createElement('header', { className: 'bg-white shadow-sm border-b border-gray-200' },
+                    React.createElement('div', { className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8' },
+                        React.createElement('div', { className: 'flex justify-between items-center py-4' },
+                            React.createElement('div', { className: 'flex items-center space-x-3' },
+                                React.createElement('div', { className: 'bg-blue-600 p-2 rounded-lg' }, '📈'),
+                                React.createElement('div', null,
+                                    React.createElement('h1', { className: 'text-2xl font-bold text-gray-900' }, 'Stock Genie'),
+                                    React.createElement('p', { className: 'text-sm text-gray-500' }, 'AI-Powered Stock Analysis')
+                                )
+                            ),
+                            React.createElement(HealthStatus, null)
+                        )
+                    )
+                ),
+                
+                React.createElement('div', { className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8' },
+                    // Symbol Selector
+                    React.createElement('div', { className: 'mb-8' },
+                        React.createElement('div', { className: 'flex flex-wrap gap-2 mb-4' },
+                            ...popularSymbols.map(symbol =>
+                                React.createElement('button', {
+                                    key: symbol,
+                                    onClick: () => setSelectedSymbol(symbol),
+                                    className: `px-4 py-2 rounded-lg font-medium ${
+                                        selectedSymbol === symbol
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                                    }`
+                                }, symbol)
+                            )
+                        ),
+                        React.createElement('div', { className: 'flex items-center space-x-4' },
+                            React.createElement('input', {
+                                type: 'text',
+                                value: selectedSymbol,
+                                onChange: (e) => setSelectedSymbol(e.target.value.toUpperCase()),
+                                placeholder: 'Enter stock symbol',
+                                className: 'block w-full max-w-xs rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500'
+                            }),
+                            React.createElement('button', {
+                                onClick: () => fetchStockData(selectedSymbol),
+                                disabled: loading || !selectedSymbol,
+                                className: 'bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg'
+                            }, loading ? 'Loading...' : 'Load Data')
+                        )
+                    ),
+                    
+                    // Error Display
+                    error && React.createElement('div', { className: 'mb-6 p-4 bg-red-50 border border-red-200 rounded-lg' },
+                        React.createElement('p', { className: 'text-red-800' }, error)
+                    ),
+                    
+                    // Stock Overview
+                    latestData && React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-6 mb-8' },
+                        React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6' },
+                            React.createElement('div', { className: 'flex items-center justify-between' },
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-sm font-medium text-gray-500' }, 'Current Price'),
+                                    React.createElement('p', { className: 'text-2xl font-bold text-gray-900' }, `$${latestData.close.toFixed(2)}`)
+                                ),
+                                React.createElement('div', { className: `p-2 rounded-lg ${isPositive ? 'bg-green-100' : 'bg-red-100'}` },
+                                    isPositive ? '📈' : '📉'
+                                )
+                            ),
+                            React.createElement('div', { className: 'mt-2' },
+                                React.createElement('span', { 
+                                    className: `text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`
+                                }, `${isPositive ? '+' : ''}$${priceChange.change.toFixed(2)} (${isPositive ? '+' : ''}${priceChange.percentage.toFixed(2)}%)`)
+                            )
+                        ),
+                        React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6' },
+                            React.createElement('div', { className: 'flex items-center justify-between' },
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-sm font-medium text-gray-500' }, 'Volume'),
+                                    React.createElement('p', { className: 'text-2xl font-bold text-gray-900' }, latestData.volume.toLocaleString())
+                                ),
+                                React.createElement('div', null, '📊')
+                            )
+                        ),
+                        React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6' },
+                            React.createElement('div', { className: 'flex items-center justify-between' },
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-sm font-medium text-gray-500' }, 'High'),
+                                    React.createElement('p', { className: 'text-2xl font-bold text-gray-900' }, `$${latestData.high.toFixed(2)}`)
+                                ),
+                                React.createElement('div', null, '⬆️')
+                            )
+                        ),
+                        React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6' },
+                            React.createElement('div', { className: 'flex items-center justify-between' },
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-sm font-medium text-gray-500' }, 'Low'),
+                                    React.createElement('p', { className: 'text-2xl font-bold text-gray-900' }, `$${latestData.low.toFixed(2)}`)
+                                ),
+                                React.createElement('div', null, '⬇️')
+                            )
+                        )
+                    ),
+                    
+                    // Navigation Tabs
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('nav', { className: 'flex space-x-8' },
+                            React.createElement('button', {
+                                onClick: () => setActiveTab('chart'),
+                                className: `py-2 px-1 border-b-2 font-medium text-sm ${
+                                    activeTab === 'chart'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`
+                            }, '📊 Price Chart'),
+                            React.createElement('button', {
+                                onClick: () => setActiveTab('analysis'),
+                                className: `py-2 px-1 border-b-2 font-medium text-sm ${
+                                    activeTab === 'analysis'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`
+                            }, '🤖 AI Analysis')
+                        )
+                    ),
+                    
+                    // Tab Content
+                    React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6' },
+                        activeTab === 'chart' && React.createElement(StockChart, { data: stockData, symbol: selectedSymbol }),
+                        activeTab === 'analysis' && React.createElement('div', { className: 'space-y-6' },
+                            React.createElement('div', { className: 'flex items-center justify-between' },
+                                React.createElement('h2', { className: 'text-2xl font-bold text-gray-900' }, 'AI Stock Analysis'),
+                                llmStatus && React.createElement('div', { 
+                                    className: `px-3 py-1 rounded-full text-sm ${
+                                        llmStatus.available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                    }`
+                                }, llmStatus.available ? '✅ LLM Ready' : '❌ LLM Offline')
+                            ),
+                            React.createElement('button', {
+                                onClick: runAnalysis,
+                                disabled: loading || !llmStatus?.available,
+                                className: 'bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg'
+                            }, loading ? 'Analyzing...' : 'Run AI Analysis'),
+                            analysis && React.createElement('div', { className: 'space-y-4' },
+                                React.createElement('div', { className: 'p-4 bg-gray-50 rounded-lg' },
+                                    React.createElement('h3', { className: 'font-semibold text-gray-900 mb-2' }, 'AI Recommendation'),
+                                    React.createElement('p', { 
+                                        className: `px-3 py-1 rounded-full text-sm font-medium inline-block ${
+                                            analysis.recommendation === 'BUY' ? 'bg-green-100 text-green-800' :
+                                            analysis.recommendation === 'SELL' ? 'bg-red-100 text-red-800' :
+                                            'bg-yellow-100 text-yellow-800'
+                                        }`
+                                    }, analysis.recommendation),
+                                    React.createElement('p', { className: 'text-sm text-gray-600 mt-2' }, `Confidence: ${analysis.confidence}%`)
+                                ),
+                                React.createElement('div', { className: 'p-4 bg-gray-50 rounded-lg' },
+                                    React.createElement('h3', { className: 'font-semibold text-gray-900 mb-2' }, 'Analysis'),
+                                    React.createElement('div', { className: 'text-gray-800' }, analysis.analysis)
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        };
+        
+        // Render the app
+        ReactDOM.render(React.createElement(Dashboard), document.getElementById('root'));
+    </script>
+</body>
+</html>

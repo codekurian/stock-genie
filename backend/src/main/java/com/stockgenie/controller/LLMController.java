@@ -26,6 +26,21 @@ public class LLMController {
         }
     }
 
+    @PostMapping("/analyze-simple")
+    public ResponseEntity<Map<String, Object>> analyzeStockSimple(@RequestBody Map<String, Object> request) {
+        try {
+            String symbol = (String) request.get("symbol");
+            String analysisType = (String) request.getOrDefault("analysisType", "quick");
+            Integer days = (Integer) request.getOrDefault("days", 7);
+            Boolean includeTechnical = (Boolean) request.getOrDefault("includeTechnicalAnalysis", true);
+            
+            Map<String, Object> response = localLLMService.analyzeStockSimple(symbol, analysisType, days, includeTechnical);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getLLMStatus() {
         try {
