@@ -33,6 +33,7 @@ public class FinancialDataService {
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final RateLimitService rateLimitService;
+    private final ApiOptimizationService apiOptimizationService;
     
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     
@@ -85,28 +86,14 @@ public class FinancialDataService {
                 return createMockData(symbol, startDate, endDate);
             }
             
-            // Check rate limits before making API call
-            if (!rateLimitService.canMakeApiCall("alpha-vantage")) {
-                log.warn("Rate limit exceeded for Alpha Vantage API. Using mock data for {}", symbol);
-                log.info("Rate limit status: {}", rateLimitService.getRateLimitStatus("alpha-vantage"));
-                return createMockData(symbol, startDate, endDate);
-            }
-            
             log.info("Fetching real data from Alpha Vantage for symbol: {}", symbol);
-            WebClient webClient = webClientBuilder.baseUrl(baseUrl).build();
             
-            // Make API call with proper error handling
-            String responseJson = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .queryParam("function", "TIME_SERIES_DAILY")
-                            .queryParam("symbol", symbol)
-                            .queryParam("outputsize", "full")
-                            .queryParam("apikey", apiKey)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .timeout(java.time.Duration.ofSeconds(30))
-                    .block();
+            // Build API URL
+            String apiUrl = baseUrl + "?function=TIME_SERIES_DAILY&symbol=" + symbol + 
+                           "&outputsize=full&apikey=" + apiKey;
+            
+            // Use optimized API service with retry mechanism
+            String responseJson = apiOptimizationService.makeApiCallWithRetry(apiUrl, "stock_data_" + symbol);
             
             if (responseJson == null || responseJson.trim().isEmpty()) {
                 log.error("Empty response received from Alpha Vantage for {}", symbol);
@@ -128,9 +115,6 @@ public class FinancialDataService {
             }
             
             List<StockDataDto> stockDataList = convertAlphaVantageResponse(response, symbol);
-            
-            // Record successful API call
-            rateLimitService.recordApiCall("alpha-vantage");
             
             // Save to database
             saveStockDataToDatabase(stockDataList);

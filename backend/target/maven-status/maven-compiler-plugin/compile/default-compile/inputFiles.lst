@@ -5,6 +5,7 @@
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/config/RedisConfig.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/config/WebClientConfig.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/controller/AnalysisController.java
+/Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/controller/DatabaseController.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/controller/HealthController.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/controller/LLMController.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/controller/RateLimitController.java
@@ -21,7 +22,9 @@
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/repository/AnalysisRequestRepository.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/repository/StockDataRepository.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/repository/TechnicalAnalysisRepository.java
+/Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/service/ApiOptimizationService.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/service/CacheService.java
+/Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/service/DataCleanupService.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/service/FinancialDataService.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/service/LocalLLMService.java
 /Users/kurianmathew/projects/workspace/stock-genie/backend/src/main/java/com/stockgenie/service/RateLimitService.java

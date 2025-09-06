@@ -8,6 +8,7 @@ com/stockgenie/entity/TechnicalAnalysis$TechnicalAnalysisBuilder.class
 com/stockgenie/controller/HealthController.class
 com/stockgenie/service/TechnicalAnalysisService.class
 com/stockgenie/dto/TechnicalAnalysisDto$TechnicalAnalysisDtoBuilder.class
+com/stockgenie/service/ApiOptimizationService.class
 com/stockgenie/dto/LLMResponseDto$LLMResponseDtoBuilder.class
 com/stockgenie/config/FinancialApiConfig$AlphaVantage.class
 com/stockgenie/dto/AlphaVantageResponse.class
@@ -34,8 +35,10 @@ com/stockgenie/controller/LLMController.class
 com/stockgenie/config/FinancialApiConfig$RateLimit.class
 com/stockgenie/controller/RateLimitController.class
 com/stockgenie/entity/StockData.class
+com/stockgenie/controller/DatabaseController.class
 com/stockgenie/dto/AlphaVantageResponse$MetaData.class
 com/stockgenie/config/FinancialApiConfig$Eodhd.class
+com/stockgenie/service/DataCleanupService.class
 com/stockgenie/entity/TechnicalAnalysis$IndicatorType.class
 com/stockgenie/controller/StockController.class
 com/stockgenie/entity/AnalysisRequest$Status.class
