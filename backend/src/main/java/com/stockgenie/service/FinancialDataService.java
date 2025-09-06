@@ -1,5 +1,7 @@
 package com.stockgenie.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockgenie.config.FinancialApiConfig;
 import com.stockgenie.dto.AlphaVantageResponse;
 import com.stockgenie.dto.StockDataDto;
@@ -29,6 +31,8 @@ public class FinancialDataService {
     private final StockDataRepository stockDataRepository;
     private final FinancialApiConfig financialApiConfig;
     private final WebClient.Builder webClientBuilder;
+    private final ObjectMapper objectMapper;
+    private final RateLimitService rateLimitService;
     
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     
@@ -76,14 +80,23 @@ public class FinancialDataService {
             String apiKey = financialApiConfig.getAlphaVantage().getApiKey();
             String baseUrl = financialApiConfig.getAlphaVantage().getBaseUrl();
             
-            if ("demo".equals(apiKey)) {
-                log.warn("Using demo API key - limited functionality");
+            if ("demo".equals(apiKey) || apiKey == null || apiKey.trim().isEmpty()) {
+                log.warn("Using demo API key - limited functionality. Please set ALPHA_VANTAGE_API_KEY environment variable for real data.");
                 return createMockData(symbol, startDate, endDate);
             }
             
+            // Check rate limits before making API call
+            if (!rateLimitService.canMakeApiCall("alpha-vantage")) {
+                log.warn("Rate limit exceeded for Alpha Vantage API. Using mock data for {}", symbol);
+                log.info("Rate limit status: {}", rateLimitService.getRateLimitStatus("alpha-vantage"));
+                return createMockData(symbol, startDate, endDate);
+            }
+            
+            log.info("Fetching real data from Alpha Vantage for symbol: {}", symbol);
             WebClient webClient = webClientBuilder.baseUrl(baseUrl).build();
             
-            AlphaVantageResponse response = webClient.get()
+            // Make API call with proper error handling
+            String responseJson = webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .queryParam("function", "TIME_SERIES_DAILY")
                             .queryParam("symbol", symbol)
@@ -91,15 +104,33 @@ public class FinancialDataService {
                             .queryParam("apikey", apiKey)
                             .build())
                     .retrieve()
-                    .bodyToMono(AlphaVantageResponse.class)
+                    .bodyToMono(String.class)
+                    .timeout(java.time.Duration.ofSeconds(30))
                     .block();
             
-            if (response == null || response.getTimeSeries() == null) {
-                log.error("No data received from Alpha Vantage for {}", symbol);
-                return new ArrayList<>();
+            if (responseJson == null || responseJson.trim().isEmpty()) {
+                log.error("Empty response received from Alpha Vantage for {}", symbol);
+                return createMockData(symbol, startDate, endDate);
+            }
+            
+            // Check for API error messages
+            if (responseJson.contains("\"Error Message\"") || responseJson.contains("\"Note\"")) {
+                log.error("Alpha Vantage API error for {}: {}", symbol, responseJson);
+                return createMockData(symbol, startDate, endDate);
+            }
+            
+            // Parse the JSON response
+            AlphaVantageResponse response = parseAlphaVantageResponse(responseJson);
+            
+            if (response == null || response.getTimeSeries() == null || response.getTimeSeries().isEmpty()) {
+                log.error("No valid time series data received from Alpha Vantage for {}", symbol);
+                return createMockData(symbol, startDate, endDate);
             }
             
             List<StockDataDto> stockDataList = convertAlphaVantageResponse(response, symbol);
+            
+            // Record successful API call
+            rateLimitService.recordApiCall("alpha-vantage");
             
             // Save to database
             saveStockDataToDatabase(stockDataList);
@@ -110,11 +141,64 @@ public class FinancialDataService {
                     .collect(Collectors.toList());
                     
         } catch (WebClientResponseException e) {
-            log.error("Error fetching data from Alpha Vantage: {}", e.getMessage());
-            throw new RuntimeException("Failed to fetch stock data from API", e);
+            log.error("HTTP error fetching data from Alpha Vantage for {}: {} - {}", symbol, e.getStatusCode(), e.getResponseBodyAsString());
+            return createMockData(symbol, startDate, endDate);
         } catch (Exception e) {
-            log.error("Unexpected error fetching stock data", e);
-            throw new RuntimeException("Unexpected error fetching stock data", e);
+            log.error("Unexpected error fetching stock data for {}: {}", symbol, e.getMessage());
+            return createMockData(symbol, startDate, endDate);
+        }
+    }
+    
+    /**
+     * Parse Alpha Vantage JSON response
+     */
+    private AlphaVantageResponse parseAlphaVantageResponse(String responseJson) {
+        try {
+            JsonNode rootNode = objectMapper.readTree(responseJson);
+            
+            // Check for time series data
+            JsonNode timeSeriesNode = rootNode.get("Time Series (Daily)");
+            if (timeSeriesNode == null) {
+                log.warn("No Time Series (Daily) found in response");
+                return null;
+            }
+            
+            AlphaVantageResponse response = new AlphaVantageResponse();
+            Map<String, AlphaVantageResponse.TimeSeriesData> timeSeries = new java.util.HashMap<>();
+            
+            // Parse metadata
+            JsonNode metaDataNode = rootNode.get("Meta Data");
+            if (metaDataNode != null) {
+                AlphaVantageResponse.MetaData metaData = new AlphaVantageResponse.MetaData();
+                metaData.setInformation(metaDataNode.get("1. Information").asText());
+                metaData.setSymbol(metaDataNode.get("2. Symbol").asText());
+                metaData.setLastRefreshed(metaDataNode.get("3. Last Refreshed").asText());
+                metaData.setOutputSize(metaDataNode.get("4. Output Size").asText());
+                metaData.setTimeZone(metaDataNode.get("5. Time Zone").asText());
+                response.setMetaData(metaData);
+            }
+            
+            // Parse time series data
+            timeSeriesNode.fields().forEachRemaining(entry -> {
+                String date = entry.getKey();
+                JsonNode dataNode = entry.getValue();
+                
+                AlphaVantageResponse.TimeSeriesData data = new AlphaVantageResponse.TimeSeriesData();
+                data.setOpen(dataNode.get("1. open").asText());
+                data.setHigh(dataNode.get("2. high").asText());
+                data.setLow(dataNode.get("3. low").asText());
+                data.setClose(dataNode.get("4. close").asText());
+                data.setVolume(dataNode.get("5. volume").asText());
+                
+                timeSeries.put(date, data);
+            });
+            
+            response.setTimeSeries(timeSeries);
+            return response;
+            
+        } catch (Exception e) {
+            log.error("Error parsing Alpha Vantage response: {}", e.getMessage());
+            return null;
         }
     }
     

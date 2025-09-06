@@ -14,6 +14,7 @@ com/stockgenie/dto/AlphaVantageResponse.class
 com/stockgenie/dto/LLMRequestDto$LLMRequestDtoBuilder.class
 com/stockgenie/dto/StockDataDto.class
 com/stockgenie/service/FinancialDataService.class
+com/stockgenie/service/RateLimitService.class
 com/stockgenie/dto/AnalysisRequestDto.class
 com/stockgenie/service/CacheService$CacheStats.class
 com/stockgenie/entity/TechnicalAnalysis.class
@@ -31,6 +32,7 @@ com/stockgenie/dto/StockDataDto$StockDataDtoBuilder.class
 com/stockgenie/repository/StockDataRepository.class
 com/stockgenie/controller/LLMController.class
 com/stockgenie/config/FinancialApiConfig$RateLimit.class
+com/stockgenie/controller/RateLimitController.class
 com/stockgenie/entity/StockData.class
 com/stockgenie/dto/AlphaVantageResponse$MetaData.class
 com/stockgenie/config/FinancialApiConfig$Eodhd.class

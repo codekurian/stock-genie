@@ -686,6 +686,52 @@ curl -X GET "http://localhost:8080/api/v1/health" \
   -H "Accept: application/json"
 ```
 
+### **4.2 Rate Limit Status**
+**`GET /api/v1/rate-limit/status`**
+
+**Description:** Returns the current rate limit status for all API providers (Alpha Vantage, EODHD).
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:8080/api/v1/rate-limit/status" \
+  -H "Accept: application/json"
+```
+
+**Example Response:**
+```json
+{
+  "timestamp": "2025-09-05T23:03:36.215211",
+  "alpha-vantage": "API: alpha-vantage, Minute: 0/5, Day: 0/25",
+  "eodhd": "API: eodhd, Minute: 0/60, Day: 0/20"
+}
+```
+
+### **4.3 Rate Limit Status for Provider**
+**`GET /api/v1/rate-limit/status/{provider}`**
+
+**Description:** Returns the rate limit status for a specific API provider.
+
+**Path Parameters:**
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `provider` | string | Yes | API provider name | `alpha-vantage`, `eodhd` |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:8080/api/v1/rate-limit/status/alpha-vantage" \
+  -H "Accept: application/json"
+```
+
+**Example Response:**
+```json
+{
+  "provider": "alpha-vantage",
+  "status": "API: alpha-vantage, Minute: 0/5, Day: 0/25",
+  "canMakeCall": true,
+  "timestamp": "2025-09-05T23:03:36.215211"
+}
+```
+
 **Response Payload:**
 ```json
 {
