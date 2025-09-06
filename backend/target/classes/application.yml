@@ -1,0 +1,121 @@
+spring:
+  application:
+    name: stock-genie-backend
+  
+  profiles:
+    active: local
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/stockgenie
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+  
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000 # 1 hour
+      cache-null-values: false
+    cache-names:
+      - stockData
+      - technicalAnalysis
+      - llmAnalysis
+
+# Server Configuration
+server:
+  port: 8080
+
+# Management and Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+# Financial API Configuration
+financial:
+  api:
+    provider: alpha-vantage
+    alpha-vantage:
+      base-url: https://www.alphavantage.co/query
+      api-key: ${ALPHA_VANTAGE_API_KEY:demo}
+      rate-limit:
+        calls-per-minute: 5
+        calls-per-day: 25
+    eodhd:
+      base-url: https://eodhd.com/api
+      api-key: ${EODHD_API_KEY:demo}
+      rate-limit:
+        calls-per-day: 20
+
+# Local LLM Configuration
+local-llm:
+  provider: ollama
+  base-url: http://localhost:11434
+  model: mistral:7b
+  timeout: 30000
+  max-tokens: 1000
+  temperature: 0.7
+  top-p: 0.9
+
+# Application Configuration
+app:
+  cache:
+    stock-data-ttl: 3600 # 1 hour in seconds
+    technical-analysis-ttl: 1800 # 30 minutes in seconds
+    llm-analysis-ttl: 7200 # 2 hours in seconds
+  analysis:
+    default-period: 30 # days
+    max-period: 365 # days
+    batch-size: 100
+
+# OpenAPI Documentation
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  packages-to-scan: com.stockgenie
+
+# Logging Configuration
+logging:
+  level:
+    com.stockgenie: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.cache: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/stock-genie.log

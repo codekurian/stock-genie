@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/stockgenie
+    username: postgres
+    password: password
+  
+  data:
+    redis:
+      host: redis
+      port: 6379
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+# Local LLM Configuration for Docker
+local-llm:
+  base-url: http://ollama:11434
+  model: mistral:7b
+
+# Production-like settings
+app:
+  cache:
+    stock-data-ttl: 3600 # 1 hour
+    technical-analysis-ttl: 1800 # 30 minutes
+
+# Logging for production
+logging:
+  level:
+    com.stockgenie: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN

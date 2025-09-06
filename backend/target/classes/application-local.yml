@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/stockgenie
+    username: postgres
+    password: password
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+# Local LLM Configuration
+local-llm:
+  base-url: http://localhost:11434
+  model: mistral:7b
+
+# Development settings
+app:
+  cache:
+    stock-data-ttl: 1800 # 30 minutes for development
+    technical-analysis-ttl: 900 # 15 minutes for development
+
+# Logging for development
+logging:
+  level:
+    com.stockgenie: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG

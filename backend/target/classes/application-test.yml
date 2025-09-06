@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  
+  cache:
+    type: simple
+
+# Test LLM Configuration (mock)
+local-llm:
+  base-url: http://localhost:11434
+  model: mistral:7b
+  timeout: 5000
+
+# Test settings
+app:
+  cache:
+    stock-data-ttl: 60 # 1 minute for tests
+    technical-analysis-ttl: 30 # 30 seconds for tests
+
+# Logging for tests
+logging:
+  level:
+    com.stockgenie: WARN
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
